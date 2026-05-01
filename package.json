@@ -1,0 +1,27 @@
+{
+  "name": "xl-track",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "bun scripts/run dev",
+    "build": "bun scripts/run build",
+    "test": "bun scripts/run test",
+    "test:unit": "bun scripts/run test:unit",
+    "coverage": "bun scripts/run coverage",
+    "test:e2e": "bun scripts/run test:e2e",
+    "lint": "bun scripts/run lint"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
