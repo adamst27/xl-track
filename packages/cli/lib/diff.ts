@@ -1,9 +1,9 @@
 import { extract } from "./extract";
 import { normalize } from "./normalize";
 import type { NormalizedData } from "./normalize";
-import { getLatestNormalizedData } from "./storage";
+import { getLatestNormalizedData, getTrackedFiles } from "./storage";
 import { compareSnapshots } from "./compare";
-import type { DiffResult, ChangeType } from "./compare";
+import type { DiffResult } from "./compare";
 import fs from "node:fs/promises";
 
 const COLORS = {
@@ -13,6 +13,7 @@ const COLORS = {
   yellow: "\x1b[33m",
   bold: "\x1b[1m",
   gray: "\x1b[90m",
+  cyan: "\x1b[36m",
 };
 
 function colorize(text: string, color: string): string {
@@ -24,7 +25,7 @@ function formatValue(val: string | number | boolean | null): string {
   return String(val);
 }
 
-function formatChangeSymbol(type: ChangeType): string {
+function formatChangeSymbol(type: string): string {
   switch (type) {
     case "ADDED":
       return colorize("+", COLORS.green);
@@ -37,17 +38,19 @@ function formatChangeSymbol(type: ChangeType): string {
   }
 }
 
-function formatDiff(diffResults: DiffResult[]): string {
+function formatDiff(file: string, diffResults: DiffResult[]): string {
   const lines: string[] = [];
 
+  lines.push(colorize(`\n${file}`, COLORS.bold));
+  lines.push(colorize("═".repeat(50), COLORS.gray));
+
   for (const result of diffResults) {
-    lines.push(colorize(`\nSheet: ${result.sheet}`, COLORS.bold));
-    lines.push(colorize("─".repeat(40), COLORS.gray));
+    lines.push(colorize(`  Sheet: ${result.sheet}`, COLORS.cyan));
 
     for (const rowChange of result.rowChanges) {
       const symbol = formatChangeSymbol(rowChange.type);
       lines.push(
-        `  ${symbol} Row ${rowChange.rowIndex}: ${rowChange.type}`
+        `    ${symbol} Row ${rowChange.rowIndex}: ${rowChange.type}`
       );
 
       for (const cellChange of rowChange.cellChanges) {
@@ -56,15 +59,15 @@ function formatDiff(diffResults: DiffResult[]): string {
 
         if (rowChange.type === "ADDED") {
           lines.push(
-            `    ${cellChange.address}: ${colorize(newVal, COLORS.green)}`
+            `      ${cellChange.address}: ${colorize(newVal, COLORS.green)}`
           );
         } else if (rowChange.type === "DELETED") {
           lines.push(
-            `    ${cellChange.address}: ${colorize(oldVal, COLORS.red)}`
+            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)}`
           );
         } else {
           lines.push(
-            `    ${cellChange.address}: ${colorize(oldVal, COLORS.red)} -> ${colorize(newVal, COLORS.green)}`
+            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)} -> ${colorize(newVal, COLORS.green)}`
           );
         }
       }
@@ -81,9 +84,9 @@ export async function diff(dir: string, filePath: string): Promise<string> {
     throw new Error(`File not found: ${filePath}`);
   }
 
-  const latestData = await getLatestNormalizedData(dir);
+  const latestData = await getLatestNormalizedData(dir, filePath);
   if (!latestData) {
-    return "No commits yet. Commit the current state first.";
+    return `${filePath}: No commits yet.`;
   }
 
   const oldData: NormalizedData = JSON.parse(latestData);
@@ -94,8 +97,37 @@ export async function diff(dir: string, filePath: string): Promise<string> {
   const diffResults = compareSnapshots(oldData, newData);
 
   if (diffResults.length === 0) {
-    return "No changes detected.";
+    return `${filePath}: No changes detected.`;
   }
 
-  return formatDiff(diffResults);
+  return formatDiff(filePath, diffResults);
+}
+
+export async function diffAll(dir: string): Promise<string> {
+  const tracked = await getTrackedFiles(dir);
+
+  if (tracked.length === 0) {
+    return "No tracked files. Run 'xlgit add <file>' first.";
+  }
+
+  const outputs: string[] = [];
+  let hasChanges = false;
+
+  for (const file of tracked) {
+    try {
+      const result = await diff(dir, file);
+      if (!result.includes("No changes detected") && !result.includes("No commits yet")) {
+        hasChanges = true;
+      }
+      outputs.push(result);
+    } catch (err) {
+      outputs.push(`${file}: Error - ${err.message}`);
+    }
+  }
+
+  if (!hasChanges) {
+    return "No changes detected in tracked files.";
+  }
+
+  return outputs.join("\n");
 }

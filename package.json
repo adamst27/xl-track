@@ -13,7 +13,8 @@
     "test:unit": "bun scripts/run test:unit",
     "coverage": "bun scripts/run coverage",
     "test:e2e": "bun scripts/run test:e2e",
-    "lint": "bun scripts/run lint"
+    "lint": "bun scripts/run lint",
+    "xlgit": "bun run packages/cli/index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

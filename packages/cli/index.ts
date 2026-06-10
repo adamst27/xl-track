@@ -1,40 +1,69 @@
 import { init } from "./lib/init";
-import { status } from "./lib/status";
-import { commit } from "./lib/commit";
-import { diff } from "./lib/diff";
+import { status, statusAll } from "./lib/status";
+import { commit, commitAll } from "./lib/commit";
+import { diff, diffAll } from "./lib/diff";
 import { log } from "./lib/log";
+import { add } from "./lib/add";
+
+const COLORS = {
+  reset: "\x1b[0m",
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  bold: "\x1b[1m",
+  gray: "\x1b[90m",
+  cyan: "\x1b[36m",
+};
+
+function colorize(text: string, color: string): string {
+  return `${color}${text}${COLORS.reset}`;
+}
 
 function printUsage() {
   console.log(`
-Usage: xl-track <command> [options]
+Usage: xlgit <command> [options]
 
 Commands:
-  init                  Initialize a new xl-track repository
-  status <file.xlsx>    Check if file has been modified since last commit
-  commit <file.xlsx> -m "message"  Commit the current state of the file
-  diff <file.xlsx>      Show changes since last commit
-  log                   Show commit history
+  init                      Initialize a new xlgit repository
+  add <file>                Add a file to tracking
+  status [file]             Check status of tracked files (or a specific file)
+  commit [-m "message"]     Commit tracked files (requires -m)
+  diff [file]               Show changes in tracked files (or a specific file)
+  log                       Show commit history
 
 Examples:
-  xl-track init
-  xl-track status data.xlsx
-  xl-track commit data.xlsx -m "Initial commit"
-  xl-track diff data.xlsx
-  xl-track log
+  xlgit init
+  xlgit add data.xlsx
+  xlgit status
+  xlgit status data.xlsx
+  xlgit commit -m "Initial commit"
+  xlgit diff
+  xlgit diff data.xlsx
+  xlgit log
 `);
 }
 
 function parseArgs(args: string[]) {
   const command = args[0];
-  const filePath = args.find(
-    (arg, i) =>
-      i > 0 &&
-      !arg.startsWith("-") &&
-      !["init", "status", "commit", "diff", "log"].includes(arg)
-  );
-  const message = args.findIndex((arg) => arg === "-m") !== -1
-    ? args[args.findIndex((arg) => arg === "-m") + 1]
-    : undefined;
+  const noFileCommands = ["init", "log"];
+
+  let filePath: string | undefined;
+  let message: string | undefined;
+
+  const messageIndex = args.findIndex((arg) => arg === "-m");
+  if (messageIndex !== -1 && messageIndex + 1 < args.length) {
+    message = args[messageIndex + 1];
+  }
+
+  if (!noFileCommands.includes(command)) {
+    filePath = args.find(
+      (arg, i) =>
+        i > 0 &&
+        !arg.startsWith("-") &&
+        !["init", "status", "commit", "diff", "log", "add"].includes(arg) &&
+        !(messageIndex !== -1 && i === messageIndex + 1)
+    );
+  }
 
   return { command, filePath, message };
 }
@@ -53,54 +82,102 @@ async function main() {
   switch (command) {
     case "init": {
       await init(cwd);
-      console.log("Initialized xl-track repository.");
+      console.log("Initialized xlgit repository.");
+      break;
+    }
+
+    case "add": {
+      if (!filePath) {
+        console.error("Error: Please specify a file to add.");
+        console.error("Usage: xlgit add <file>");
+        process.exit(1);
+      }
+      const tracked = await add(cwd, filePath);
+      console.log(`Added: ${filePath}`);
+      console.log(`Tracked files: ${tracked.length}`);
       break;
     }
 
     case "status": {
-      if (!filePath) {
-        console.error("Error: Please specify an Excel file.");
-        console.error("Usage: xl-track status <file.xlsx>");
-        process.exit(1);
-      }
-      const result = await status(cwd, filePath);
-      console.log(`Current hash: ${result.currentHash.slice(0, 12)}...`);
+      if (filePath) {
+        const result = await status(cwd, filePath);
+        console.log(`${filePath}:`);
+        console.log(`  Hash: ${result.currentHash.slice(0, 12)}...`);
 
-      if (!result.isCommitted) {
-        console.log("Status: No commits yet.");
-      } else if (result.isModified) {
-        console.log("Status: Modified (changes detected)");
+        if (!result.isCommitted) {
+          console.log(colorize("  Status: Not committed", COLORS.yellow));
+        } else if (result.isModified) {
+          console.log(colorize("  Status: Modified", COLORS.red));
+        } else {
+          console.log(colorize("  Status: Up to date", COLORS.green));
+        }
       } else {
-        console.log("Status: Up to date");
+        const results = await statusAll(cwd);
+
+        if (results.length === 0) {
+          console.log("No tracked files. Run 'xlgit add <file>' first.");
+          break;
+        }
+
+        let hasChanges = false;
+        for (const result of results) {
+          let statusStr = "";
+          let statusColor = "";
+
+          if (!result.isCommitted) {
+            statusStr = "Not committed";
+            statusColor = COLORS.yellow;
+          } else if (result.isModified) {
+            statusStr = "Modified";
+            statusColor = COLORS.red;
+            hasChanges = true;
+          } else {
+            statusStr = "Up to date";
+            statusColor = COLORS.green;
+          }
+
+          console.log(
+            `  ${colorize(statusStr, statusColor)}  ${result.file}`
+          );
+        }
+
+        if (!hasChanges) {
+          console.log("\nAll tracked files are up to date.");
+        }
       }
       break;
     }
 
     case "commit": {
-      if (!filePath) {
-        console.error("Error: Please specify an Excel file.");
-        console.error("Usage: xl-track commit <file.xlsx> -m \"message\"");
-        process.exit(1);
-      }
       if (!message) {
         console.error("Error: Please provide a commit message with -m");
         process.exit(1);
       }
-      const commitResult = await commit(cwd, filePath, message);
-      console.log(
-        `Committed: ${commitResult.hash.slice(0, 12)}... "${commitResult.message}"`
-      );
+
+      let commitResult;
+      if (filePath) {
+        commitResult = await commit(cwd, filePath, message);
+        console.log(
+          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`
+        );
+      } else {
+        commitResult = await commitAll(cwd, message);
+        console.log(
+          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`
+        );
+        console.log(`  Files: ${commitResult.files.length}`);
+      }
       break;
     }
 
     case "diff": {
-      if (!filePath) {
-        console.error("Error: Please specify an Excel file.");
-        console.error("Usage: xl-track diff <file.xlsx>");
-        process.exit(1);
+      if (filePath) {
+        const diffResult = await diff(cwd, filePath);
+        console.log(diffResult);
+      } else {
+        const diffResult = await diffAll(cwd);
+        console.log(diffResult);
       }
-      const diffResult = await diff(cwd, filePath);
-      console.log(diffResult);
       break;
     }
 

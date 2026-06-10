@@ -15,23 +15,37 @@ XL-Track does not version the `.xlsx` binary. Instead, it normalizes the data:
 
 ## Installation
 
-Ensure you have [Bun/Node] installed for optimal execution speed.
+Ensure you have [Bun](https://bun.sh) installed for optimal execution speed.
 
 ```bash
-git clone [https://github.com/adamst27/xl-track.git](https://github.com/adamst27/xl-track.git)
+git clone https://github.com/adamst27/xl-track.git
 cd xl-track
 bun install
-bun link
 ```
+
+Add `xl-track/bin/` to your system PATH, then `xlgit` works from anywhere.
 
 ## Usage Commands
 
-1. **xl-track init** - Initializes an empty .xl-vcs repository in the current directory.
+1. **xlgit init** - Initialize a new xlgit repository in the current directory.
 
-2. **xl-track status** - Checks if the target .xlsx file has been modified since the last commit.
+2. **xlgit add <file>** - Add an Excel file to tracking.
 
-3. **xl-track diff** - Outputs a color-coded terminal view of additions, deletions, and cell modifications.
+3. **xlgit status [file]** - Check status of all tracked files (or a specific file).
 
-4. **xl-track commit** -m "Message" - Snapshots the current state of the data.
+4. **xlgit commit -m "Message"** - Commit the current state of all tracked files.
 
-5. **xl-track log** - Displays the timeline of data modifications.
+5. **xlgit diff [file]** - Show color-coded additions, deletions, and cell modifications.
+
+6. **xlgit log** - Display the timeline of data modifications.
+
+## Examples
+
+```bash
+xlgit init
+xlgit add data.xlsx
+xlgit status
+xlgit commit -m "Initial commit"
+xlgit diff
+xlgit log
+```
