@@ -1,4 +1,4 @@
-import { init } from "./lib/init";
+import { checkInitialized, init } from "./lib/init";
 import { status, statusAll } from "./lib/status";
 import { commit, commitAll } from "./lib/commit";
 import { diff, diffAll } from "./lib/diff";
@@ -55,13 +55,13 @@ function parseArgs(args: string[]) {
     message = args[messageIndex + 1];
   }
 
-  if (!noFileCommands.includes(command)) {
+  if (command && !noFileCommands.includes(command)) {
     filePath = args.find(
       (arg, i) =>
         i > 0 &&
         !arg.startsWith("-") &&
         !["init", "status", "commit", "diff", "log", "add"].includes(arg) &&
-        !(messageIndex !== -1 && i === messageIndex + 1)
+        !(messageIndex !== -1 && i === messageIndex + 1),
     );
   }
 
@@ -77,7 +77,26 @@ async function main() {
   }
 
   const { command, filePath, message } = parseArgs(args);
+
+  if (!command) {
+    console.error(
+      "Error: Please enter a command, use --help for the list of available commands!",
+    );
+    process.exit(1);
+  }
+
   const cwd = process.cwd();
+
+  const requiresInit = ["add", "status", "commit", "diff", "log"];
+
+  if (requiresInit.includes(command)) {
+    const isXlvcRepo = await checkInitialized(cwd);
+
+    if (!isXlvcRepo) {
+      console.error("Error: xlgit repo not initialized.");
+      process.exit(1);
+    }
+  }
 
   switch (command) {
     case "init": {
@@ -136,9 +155,7 @@ async function main() {
             statusColor = COLORS.green;
           }
 
-          console.log(
-            `  ${colorize(statusStr, statusColor)}  ${result.file}`
-          );
+          console.log(`  ${colorize(statusStr, statusColor)}  ${result.file}`);
         }
 
         if (!hasChanges) {
@@ -158,12 +175,12 @@ async function main() {
       if (filePath) {
         commitResult = await commit(cwd, filePath, message);
         console.log(
-          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`
+          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`,
         );
       } else {
         commitResult = await commitAll(cwd, message);
         console.log(
-          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`
+          `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`,
         );
         console.log(`  Files: ${commitResult.files.length}`);
       }

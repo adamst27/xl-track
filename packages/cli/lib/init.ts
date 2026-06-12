@@ -25,3 +25,17 @@ const makeAbsentHeadFile = async (target: string) => {
     console.error(err);
   }
 };
+
+export const checkInitialized = async (dir: string): Promise<boolean> => {
+  const target = join(dir, ".xlvc");
+
+  try {
+    await fs.access(target);
+    return true;
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      return false;
+    }
+    throw err;
+  }
+};

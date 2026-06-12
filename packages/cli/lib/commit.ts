@@ -8,7 +8,7 @@ import fs from "node:fs/promises";
 export async function commit(
   dir: string,
   filePath: string,
-  message: string
+  message: string,
 ): Promise<Commit> {
   try {
     await fs.access(filePath);
@@ -27,10 +27,7 @@ export async function commit(
   return commit;
 }
 
-export async function commitAll(
-  dir: string,
-  message: string
-): Promise<Commit> {
+export async function commitAll(dir: string, message: string): Promise<Commit> {
   const tracked = await getTrackedFiles(dir);
 
   if (tracked.length === 0) {
@@ -47,7 +44,7 @@ export async function commitAll(
       const normalizedStr = normalizeToString(workbookData);
       fileData.set(file, normalizedStr);
       filePaths.push(file);
-    } catch (err) {
+    } catch (err: any) {
       throw new Error(`Error reading ${file}: ${err.message}`);
     }
   }

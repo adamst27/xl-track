@@ -49,9 +49,7 @@ function formatDiff(file: string, diffResults: DiffResult[]): string {
 
     for (const rowChange of result.rowChanges) {
       const symbol = formatChangeSymbol(rowChange.type);
-      lines.push(
-        `    ${symbol} Row ${rowChange.rowIndex}: ${rowChange.type}`
-      );
+      lines.push(`    ${symbol} Row ${rowChange.rowIndex}: ${rowChange.type}`);
 
       for (const cellChange of rowChange.cellChanges) {
         const oldVal = formatValue(cellChange.oldValue);
@@ -59,15 +57,15 @@ function formatDiff(file: string, diffResults: DiffResult[]): string {
 
         if (rowChange.type === "ADDED") {
           lines.push(
-            `      ${cellChange.address}: ${colorize(newVal, COLORS.green)}`
+            `      ${cellChange.address}: ${colorize(newVal, COLORS.green)}`,
           );
         } else if (rowChange.type === "DELETED") {
           lines.push(
-            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)}`
+            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)}`,
           );
         } else {
           lines.push(
-            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)} -> ${colorize(newVal, COLORS.green)}`
+            `      ${cellChange.address}: ${colorize(oldVal, COLORS.red)} -> ${colorize(newVal, COLORS.green)}`,
           );
         }
       }
@@ -116,11 +114,14 @@ export async function diffAll(dir: string): Promise<string> {
   for (const file of tracked) {
     try {
       const result = await diff(dir, file);
-      if (!result.includes("No changes detected") && !result.includes("No commits yet")) {
+      if (
+        !result.includes("No changes detected") &&
+        !result.includes("No commits yet")
+      ) {
         hasChanges = true;
       }
       outputs.push(result);
-    } catch (err) {
+    } catch (err: any) {
       outputs.push(`${file}: Error - ${err.message}`);
     }
   }
