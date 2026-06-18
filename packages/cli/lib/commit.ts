@@ -55,3 +55,7 @@ export async function commitAll(dir: string, message: string): Promise<Commit> {
   const commit = await saveCommit(dir, hash, message, filePaths, fileData);
   return commit;
 }
+
+// TODO: Implement a handle commit
+
+export async function handleCommit() {}

@@ -3,7 +3,8 @@ import { status, statusAll } from "./lib/status";
 import { commit, commitAll } from "./lib/commit";
 import { diff, diffAll } from "./lib/diff";
 import { log } from "./lib/log";
-import { add } from "./lib/add";
+import { handleAdd } from "./lib/add";
+import { getTrackedFiles } from "./lib/storage";
 
 const COLORS = {
   reset: "\x1b[0m",
@@ -98,6 +99,8 @@ async function main() {
     }
   }
 
+  const trackedFiles = await getTrackedFiles(cwd);
+
   switch (command) {
     case "init": {
       await init(cwd);
@@ -111,14 +114,14 @@ async function main() {
         console.error("Usage: xlgit add <file>");
         process.exit(1);
       }
-      const tracked = await add(cwd, filePath);
+      const tracked = await handleAdd(cwd, filePath);
       console.log(`Added: ${filePath}`);
       console.log(`Tracked files: ${tracked.length}`);
       break;
     }
 
     case "status": {
-      if (filePath) {
+      if (filePath && trackedFiles.length <= 1) {
         const result = await status(cwd, filePath);
         console.log(`${filePath}:`);
         console.log(`  Hash: ${result.currentHash.slice(0, 12)}...`);
@@ -172,7 +175,7 @@ async function main() {
       }
 
       let commitResult;
-      if (filePath) {
+      if (filePath && trackedFiles.length <= 1) {
         commitResult = await commit(cwd, filePath, message);
         console.log(
           `Committed: ${colorize(commitResult.hash.slice(0, 12), COLORS.cyan)}... "${commitResult.message}"`,
@@ -188,7 +191,7 @@ async function main() {
     }
 
     case "diff": {
-      if (filePath) {
+      if (filePath && trackedFiles.length < 1) {
         const diffResult = await diff(cwd, filePath);
         console.log(diffResult);
       } else {
@@ -207,9 +210,10 @@ async function main() {
     default: {
       console.error(`Unknown command: ${command}`);
       printUsage();
-      process.exit(1);
     }
   }
+
+  process.exit(0);
 }
 
 main().catch((err) => {
