@@ -1,8 +1,11 @@
 {
-  "name": "cli",
+  "name": "xlgit",
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "xlgit": "./index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
